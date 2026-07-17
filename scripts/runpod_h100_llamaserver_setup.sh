@@ -13,8 +13,8 @@ if [ ! -d "/workspace/iol" ]; then
 fi
 cd /workspace/iol
 
-# 2. Install dependencies
-pip install -q -r requirements.txt
+# 2. Install dependencies (minimal — no torch/transformers/autoawq, llama.cpp handles inference)
+pip install -q -r requirements_server.txt
 
 # 3. Download llama-server prebuilt binary (Linux CUDA)
 LLAMA_DIR="/workspace/llama-bin"

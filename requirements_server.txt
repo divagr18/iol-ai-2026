@@ -1,0 +1,9 @@
+# Minimal requirements for llama-server local/H100 testing
+# (No torch/transformers/autoawq — llama.cpp handles inference)
+
+pandas
+numpy
+sacrebleu>=2.4.0
+datasets
+huggingface_hub
+pytest
