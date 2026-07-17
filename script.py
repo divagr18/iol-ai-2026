@@ -68,7 +68,13 @@ TASK_PROMPTS = {
 
 def load_model():
     print(f"Loading model from {MODEL_ID} ...", flush=True)
-    tok = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
+    # Gemma-4 fast tokenizer has compatibility issues with some AWQ configs
+    # Use slow tokenizer as default for reliability in eval sandbox
+    try:
+        tok = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True, use_fast=False)
+    except Exception as e:
+        print(f"Slow tokenizer failed: {e}, trying fast tokenizer...", flush=True)
+        tok = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
 
