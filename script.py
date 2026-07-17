@@ -67,10 +67,7 @@ def load_model():
 
 
 def build_messages(context, query, task_type):
-    system = SYSTEM_BASE
-    hint = TASK_HINTS.get(task_type, "")
-    if hint:
-        system += f" {hint}"
+    system = "You solve International Linguistics Olympiad problems. Answer every numbered item. Put each answer on its own line, in order, with no numbering and no extra text."
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": f"{context.strip()}\n\n{query.strip()}"},
