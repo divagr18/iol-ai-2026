@@ -51,7 +51,8 @@ SYSTEM_BASE = (
     "You reason carefully from the data provided, never using outside knowledge. "
     "You must answer EVERY numbered item in the query. "
     "Put each answer on its own line, in the same order as the query, with NO numbering and NO extra text. "
-    "Do not add explanations, headers, or markdown formatting in the answer section."
+    "NEVER show your reasoning, thinking, or analysis. "
+    "Output ONLY the final answers, nothing else."
 )
 
 TASK_PROMPTS = {
@@ -155,6 +156,9 @@ def apply_chat_template_safe(tok, messages, max_length=8192):
 
 
 def parse_answers(text, expected_count=None):
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    text = re.sub(r"Thinking Process:.*", "", text, flags=re.DOTALL)
+    text = re.sub(r"\*\*Analyze the Request:\*\*.*", "", text, flags=re.DOTALL)
     lines = text.splitlines()
     answers = []
     for line in lines:
@@ -163,8 +167,10 @@ def parse_answers(text, expected_count=None):
             continue
         if re.match(r"^(answers?|solution|output|result)s?[:\s]*$", line, re.I):
             continue
-        if re.match(r"^(explanation|reasoning|note)[:\s]*$", line, re.I):
+        if re.match(r"^(explanation|reasoning|note|thinking)[:\s]*$", line, re.I):
             break
+        line = re.sub(r"\*\*", "", line)
+        line = re.sub(r"\*", "", line)
         cleaned = re.sub(r"^\s*(\d+[\.\)]\s+|\w[\.\)]\s+|-\s+)", "", line)
         if cleaned:
             answers.append(cleaned)
@@ -189,6 +195,9 @@ def count_expected_items(query):
     numbers = re.findall(r"(?:^|\n)\s*(\d+)[\.\)]\s+", query)
     if numbers:
         return max(int(n) for n in numbers)
+    range_match = re.search(r"\(\s*(\d+)\s*[-–—]\s*(\d+)\s*\)", query)
+    if range_match:
+        return int(range_match.group(2)) - int(range_match.group(1)) + 1
     lines = [ln.strip() for ln in query.splitlines() if ln.strip()]
     count = sum(1 for ln in lines if re.match(r"^\d+[\.\)]", ln))
     return count if count > 0 else None

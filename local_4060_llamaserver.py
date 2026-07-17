@@ -171,7 +171,9 @@ def build_prompt(context: str, query: str, task_type: str) -> str:
     system = (
         "You are an expert linguist solving International Linguistics Olympiad problems. "
         "Answer every numbered item. Put each answer on its own line, "
-        "with NO numbering and NO extra text."
+        "with NO numbering and NO extra text. "
+        "NEVER show your reasoning, thinking, or analysis. "
+        "Output ONLY the final answers, nothing else."
     )
     hints = {
         "translation": "Output only the translated sentence.",
@@ -191,12 +193,18 @@ def build_prompt(context: str, query: str, task_type: str) -> str:
 
 
 def parse_answers(text: str, expected_count: int = None) -> list:
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    text = re.sub(r"Thinking Process:.*", "", text, flags=re.DOTALL)
+    text = re.sub(r"\*\*Analyze the Request:\*\*.*", "", text, flags=re.DOTALL)
+
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     filtered = []
     for line in lines:
         low = line.lower()
-        if low.startswith(("answer", "solution", "output", "result", "explanation", "note")):
+        if low.startswith(("answer", "solution", "output", "result", "explanation", "note", "thinking")):
             continue
+        line = re.sub(r"\*\*", "", line)
+        line = re.sub(r"\*", "", line)
         cleaned = re.sub(r"^\s*(\d+[\.\)]\s+|\w[\.\)]\s+|-\s+)", "", line)
         if cleaned:
             filtered.append(cleaned)
@@ -208,9 +216,15 @@ def parse_answers(text: str, expected_count: int = None) -> list:
 
 
 def count_expected_items(query: str) -> int:
+    # Numbered items like "17." or "18)"
     numbers = re.findall(r"(?:^|\n)\s*(\d+)[\.\)]\s+", query)
     if numbers:
         return max(int(n) for n in numbers)
+    # Range notation like "(1-4)" or "(1–10)"
+    range_match = re.search(r"\(\s*(\d+)\s*[-–—]\s*(\d+)\s*\)", query)
+    if range_match:
+        return int(range_match.group(2)) - int(range_match.group(1)) + 1
+    # Count lines starting with numbers
     return len([ln for ln in query.splitlines() if re.match(r"^\d+[\.\)]", ln.strip())])
 
 
