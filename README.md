@@ -26,11 +26,16 @@ You already have llama.cpp compiled with CUDA at:
 # https://huggingface.co/unsloth/Qwen3.5-4B-GGUF → click qwen3.5-4b-q4_k_m.gguf → download
 # Save to D:\IOL\models\
 
-# Run on 5 problems (native CUDA, ~2-5s each on 4060)
-python local_4060_llamacpp.py --model models/qwen3.5-4b-q4_k_m.gguf --limit 5 --score
+# Run on 5 problems with full progress, ETA, timing breakdown
+python local_4060_llamacpp.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 5 --score --verbose
+
+# Tune performance (threads, GPU layers, context, batch)
+python local_4060_llamacpp.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 10 \
+  --threads 8 --ngl 999 --ctx 4096 --batch 512 --verbose
 
 # Iterate on prompts: edit script.py TASK_PROMPTS, then rerun
 ```
+**Options:** `--threads` (CPU threads), `--ngl` (GPU layers, 999=all), `--ctx` (context size), `--batch` (batch size), `--verbose` (show per-problem llama-cli output).
 
 ### Local 4060 (Transformers AWQ — Eval-Compatible)
 Same code that runs in the T4 sandbox:
