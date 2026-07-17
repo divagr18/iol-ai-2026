@@ -32,10 +32,14 @@ python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --lim
 
 # Tune performance
 python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 10 \
-  --threads 4 --ngl 999 --ctx 2048 --batch 256
+  --threads 4 --ngl 999 --ctx 2048 --batch 512
 
 # Enable deterministic linguistic analyzers (test if it helps for a specific model)
 python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 5 --score --use_analysis
+
+# Parallel processing (2 workers, 2 slots — good for local 4060)
+python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 10 --score \
+  --threads 4 --parallel 2 --workers 2
 ```
 
 **Qwen3.5 local test (has reasoning/thinking blocks, ~60s/problem on 4060):**
@@ -71,15 +75,19 @@ bash scripts/runpod_h100_setup.sh
 ### RunPod H100 (llama-server + GGUF — Same as Local Setup)
 For fast iteration with llama-server (model stays hot in VRAM):
 ```bash
-# 1. Setup (one time) — downloads llama-server Linux binary + Gemma-4 12B Q4_K_M
+# 1. Setup (one time) — builds llama-server from source + downloads Gemma-4 12B Q4_K_M
 git clone https://github.com/divagr18/iol-ai-2026.git /workspace/iol
 cd /workspace/iol
 bash scripts/runpod_h100_llamaserver_setup.sh
 
-# 2. Test on 5 problems (baseline)
+# 2. Test on 5 problems (baseline, sequential)
 python runpod_h100_llamaserver.py --model models/gemma-4-12b-it-q4_k_m.gguf --limit 5 --score
 
-# 3. Full run with analyzers (12B can handle them)
+# 3. Parallel processing (4 workers, 4 slots — ~3-4x faster on H100)
+python runpod_h100_llamaserver.py --model models/gemma-4-12b-it-q4_k_m.gguf --limit 40 --score \
+  --parallel 4 --workers 4 --threads $(nproc)
+
+# 4. Full run with analyzers (12B can handle them)
 python runpod_h100_llamaserver.py --model models/gemma-4-12b-it-q4_k_m.gguf --limit 40 --score --use_analysis
 ```
 
