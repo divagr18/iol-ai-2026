@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pandas as pd
 
-# RunPod H100 paths
-LLAMA_SERVER = Path("/workspace/llama-bin/llama-server")
+# RunPod H100: uses Docker image instead of local binary
+LLAMA_DOCKER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-cuda"
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 from scorer import score_submission
@@ -35,53 +35,40 @@ SERVER_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
 
 
 def start_server(model_path: str, ngl: int = 999, threads: int = 8, ctx: int = 4096, batch: int = 512):
-    if not LLAMA_SERVER.exists():
-        raise FileNotFoundError(
-            f"llama-server not found at {LLAMA_SERVER}. "
-            "Run: bash scripts/runpod_h100_llamaserver_setup.sh"
-        )
-
+    abs_model = os.path.abspath(model_path)
     cmd = [
-        str(LLAMA_SERVER),
-        "-m", model_path,
-        "--host", SERVER_HOST,
+        "docker", "run", "--rm", "-d",
+        "--gpus", "all",
+        "-v", f"{os.path.dirname(abs_model)}:/models:ro",
+        "-p", f"{SERVER_PORT}:{SERVER_PORT}",
+        LLAMA_DOCKER_IMAGE,
+        "-m", f"/models/{os.path.basename(abs_model)}",
+        "--host", "0.0.0.0",
         "--port", str(SERVER_PORT),
         "-ngl", str(ngl),
         "-t", str(threads),
         "-c", str(ctx),
         "-b", str(batch),
         "--mlock",
-        "--no-webui",
         "--flash-attn", "auto",
         "--chat-template-kwargs", '{"enable_thinking":false}',
     ]
 
-    print(f"Starting server: {LLAMA_SERVER.name}")
+    print(f"Starting server: {LLAMA_DOCKER_IMAGE}")
     print(f"  Model : {model_path}")
     print(f"  GPU   : {ngl} layers (H100)")
     print(f"  Ctx   : {ctx}")
     print(f"  Port  : {SERVER_PORT}")
-    print("  (This takes ~10-30s to load the model into VRAM...)")
+    print("  (This takes ~10-30s to pull image + load model into VRAM...)")
 
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-
-    import threading
-    server_output = []
-    def _read_stdout():
-        try:
-            for line in iter(proc.stdout.readline, ""):
-                server_output.append(line)
-        except Exception:
-            pass
-    reader = threading.Thread(target=_read_stdout, daemon=True)
-    reader.start()
+    # docker run -d outputs container ID, then exits
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    container_id = result.stdout.strip().split('\n')[0].strip()
+    if not container_id or result.returncode != 0:
+        print("ERROR: Failed to start Docker container")
+        print(result.stderr)
+        sys.exit(1)
+    print(f"  Container: {container_id[:12]}")
 
     start_wait = time.time()
     max_wait = 180
@@ -133,13 +120,10 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 8, ctx: int = 4
     return proc
 
 
-def stop_server(proc):
+def stop_server(container_id: str = None):
     print("\nStopping server...")
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+    if container_id:
+        subprocess.run(["docker", "kill", container_id], capture_output=True)
     print("Server stopped.")
 
 
@@ -271,7 +255,7 @@ def main():
         df = df.head(args.limit)
     total = len(df)
 
-    server_proc = start_server(
+    container_id = start_server(
         args.model,
         ngl=args.ngl,
         threads=args.threads,
@@ -358,7 +342,7 @@ def main():
             print(f"  chrF       : {result['chrF']:.4f}")
 
     finally:
-        stop_server(server_proc)
+        stop_server(container_id)
 
 
 if __name__ == "__main__":
