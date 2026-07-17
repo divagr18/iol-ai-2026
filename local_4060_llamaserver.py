@@ -58,7 +58,7 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2
         "--mlock",
         "--no-webui",
         "--flash-attn", "auto",
-        "--chat-template-kwargs", '{"enable_thinking":false}',
+        "--reasoning", "off",
     ]
 
     print(f"Starting server: {LLAMA_SERVER.name}")
