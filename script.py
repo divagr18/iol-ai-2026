@@ -132,13 +132,19 @@ def build_messages(context, query, task_type, analysis_text="", use_explanation=
 def apply_chat_template_safe(tok, messages, max_length=8192):
     """Apply chat template with fallback for models without templates."""
     try:
-        inputs = tok.apply_chat_template(
-            messages, add_generation_prompt=True, return_tensors="pt", tokenize=True,
-        )
+        # Qwen3.5: disable reasoning/thinking blocks
+        kwargs = {"add_generation_prompt": True, "return_tensors": "pt", "tokenize": True}
+        if hasattr(tok, "apply_chat_template"):
+            # Try passing enable_thinking=False (Qwen3 specific)
+            try:
+                test = tok.apply_chat_template([{"role": "user", "content": "hi"}], chat_template_kwargs={"enable_thinking": False})
+                kwargs["chat_template_kwargs"] = {"enable_thinking": False}
+            except TypeError:
+                pass  # Model doesn't support this kwarg
+        inputs = tok.apply_chat_template(messages, **kwargs)
         if isinstance(inputs, dict):
             inputs = inputs["input_ids"]
     except Exception as e:
-        # Fallback: manual formatting
         text_parts = []
         for msg in messages:
             role = msg.get("role", "")
