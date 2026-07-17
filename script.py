@@ -18,12 +18,14 @@ import sys
 import time
 from pathlib import Path
 
+# Force fresh cache to avoid loading cached Gemma tokenizer classes
+os.environ["TRANSFORMERS_CACHE"] = "/tmp/hf_cache"
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
 import pandas as pd
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-os.environ["HF_HUB_OFFLINE"] = "1"
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 # Configuration
 MODEL_ID = os.environ.get("MODEL_ID", "qwen2.5-14b-awq")  # weights shipped in repo subdir
