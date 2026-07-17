@@ -166,10 +166,10 @@ def main():
     parser.add_argument("--data", type=str, default="data/linguini_test_sample.csv")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--max_tokens", type=int, default=256)
-    parser.add_argument("--threads", type=int, default=None, help="CPU threads (default: auto)")
+    parser.add_argument("--threads", type=int, default=4, help="CPU threads (default: 4)")
     parser.add_argument("--ngl", type=int, default=999, help="GPU layers to offload (default: 999=all)")
-    parser.add_argument("--ctx", type=int, default=4096, help="Context size")
-    parser.add_argument("--batch", type=int, default=512, help="Batch size")
+    parser.add_argument("--ctx", type=int, default=2048, help="Context size (default: 2048, enough for IOL problems)")
+    parser.add_argument("--batch", type=int, default=256, help="Batch size (default: 256)")
     parser.add_argument("--output", type=str, default="data/llamacpp_submission.csv")
     parser.add_argument("--score", action="store_true")
     parser.add_argument("--verbose", action="store_true", help="Show llama-cli commands and stderr")
@@ -181,7 +181,7 @@ def main():
         print("Look for: llama-bXXXX-bin-win-cuda-x64.zip")
         sys.exit(1)
 
-    threads = args.threads or min(os.cpu_count() or 8, 16)
+    threads = args.threads
 
     df = pd.read_csv(args.data, dtype=str)
     if args.limit:
