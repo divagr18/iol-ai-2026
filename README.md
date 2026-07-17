@@ -17,25 +17,27 @@
 
 ## Quick Commands
 
-### Local 4060 (llama.cpp CLI — Fastest for Prompt Iteration)
-You already have llama.cpp compiled with CUDA at:
-`C:\Users\Keshav\Downloads\llama-b10064-bin-win-cuda-13.3-x64\llama-cli.exe`
+### Local 4060 (llama.cpp SERVER — Recommended, Model Stays Hot in VRAM)
+Uses `llama-server.exe` which loads the model **once** into VRAM, then each problem is a fast HTTP request (~1-3s). No reloading between problems.
 
 ```bash
 # Download Unsloth GGUF Q4_K_M (~2.3GB) via browser:
 # https://huggingface.co/unsloth/Qwen3.5-4B-GGUF → click qwen3.5-4b-q4_k_m.gguf → download
 # Save to D:\IOL\models\
 
-# Run on 5 problems with full progress, ETA, timing breakdown
-python local_4060_llamacpp.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 5 --score --verbose
+# Run on 5 problems (server starts automatically, stays hot)
+python local_4060_llamaserver.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 5 --score
 
-# Tune performance (threads, GPU layers, context, batch)
-python local_4060_llamacpp.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 10 \
-  --threads 8 --ngl 999 --ctx 4096 --batch 512 --verbose
-
-# Iterate on prompts: edit script.py TASK_PROMPTS, then rerun
+# Tune performance
+python local_4060_llamaserver.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 10 \
+  --threads 4 --ngl 999 --ctx 2048 --batch 256
 ```
-**Options:** `--threads` (CPU threads), `--ngl` (GPU layers, 999=all), `--ctx` (context size), `--batch` (batch size), `--verbose` (show per-problem llama-cli output).
+
+### Local 4060 (llama.cpp CLI — Fallback, Spawns Per Problem)
+Slower because it reloads the model every problem. Only use if server mode fails.
+```bash
+python local_4060_llamacpp.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 5 --score --verbose
+```
 
 ### Local 4060 (Transformers AWQ — Eval-Compatible)
 Same code that runs in the T4 sandbox:
