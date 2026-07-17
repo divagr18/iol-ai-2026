@@ -20,6 +20,13 @@ LLAMA_BIN="/workspace/llama.cpp/build/bin/llama-server"
 
 if [ ! -f "$LLAMA_BIN" ]; then
     echo "llama-server not found. Building llama.cpp from source with CUDA..."
+    
+    # Install build dependencies if missing
+    if ! command -v cmake &> /dev/null; then
+        echo "Installing build dependencies (cmake, build-essential)..."
+        apt-get update -qq && apt-get install -y -qq build-essential cmake
+    fi
+    
     cd /workspace
     if [ ! -d "llama.cpp" ]; then
         git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
