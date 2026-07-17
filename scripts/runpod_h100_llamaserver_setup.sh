@@ -16,29 +16,23 @@ cd /workspace/iol
 # 2. Install dependencies (minimal — no torch/transformers/autoawq, llama.cpp handles inference)
 pip install -q -r requirements_server.txt
 
-# 3. Download llama-server prebuilt binary (Linux CUDA)
-LLAMA_DIR="/workspace/llama-bin"
-mkdir -p "$LLAMA_DIR"
+LLAMA_BIN="/workspace/llama.cpp/build/bin/llama-server"
 
-if [ ! -f "$LLAMA_DIR/llama-server" ]; then
-    echo "Downloading llama.cpp Linux CUDA binaries..."
-    # Try latest release first
-    LATEST_URL=$(curl -s https://api.github.com/repos/ggerganov/llama.cpp/releases/latest | grep "browser_download_url.*llama-.*-bin-ubuntu.*-cuda.*x64.tar.gz" | head -1 | cut -d '"' -f 4)
-    
-    if [ -z "$LATEST_URL" ]; then
-        # Fallback to a known good release
-        LATEST_URL="https://github.com/ggerganov/llama.cpp/releases/download/b4614/llama-b4614-bin-ubuntu-22.04-cuda-x64.tar.gz"
+if [ ! -f "$LLAMA_BIN" ]; then
+    echo "llama-server not found. Building llama.cpp from source with CUDA..."
+    cd /workspace
+    if [ ! -d "llama.cpp" ]; then
+        git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
     fi
-    
-    cd /tmp
-    wget -q "$LATEST_URL" -O llama-cuda.tar.gz
-    tar -xzf llama-cuda.tar.gz -C "$LLAMA_DIR" --strip-components=1 2>/dev/null || tar -xzf llama-cuda.tar.gz -C "$LLAMA_DIR"
-    rm llama-cuda.tar.gz
-    chmod +x "$LLAMA_DIR/llama-server"
+    cd llama.cpp
+    git pull --depth 1 || true
+    mkdir -p build && cd build
+    cmake .. -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
+    make -j$(nproc) llama-server
     cd /workspace/iol
 fi
 
-echo "llama-server: $LLAMA_DIR/llama-server"
+echo "llama-server: $LLAMA_BIN"
 
 # 4. Download Gemma-4 12B GGUF (Q4_K_M, ~7.5GB)
 MODEL_DIR="/workspace/iol/models"
