@@ -77,3 +77,7 @@ dmypy.json
 *.tar.gz
 *.tar
 *.gz
+
+# llama.cpp binaries (if placed in repo for local use)
+llama/
+llama.cpp/

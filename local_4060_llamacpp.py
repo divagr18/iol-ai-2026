@@ -25,8 +25,10 @@ from pathlib import Path
 
 import pandas as pd
 
-# Path to your pre-compiled llama.cpp binary
-LLAMA_CLI = Path(r"C:\Users\Keshav\Downloads\llama-b10064-bin-win-cuda-13.3-x64\llama-cli.exe")
+# Path to llama.cpp binary — check local llama/ folder first, fallback to Downloads
+LLAMA_CLI_LOCAL = Path(__file__).parent / "llama" / "llama-cli.exe"
+LLAMA_CLI_FALLBACK = Path(r"C:\Users\Keshav\Downloads\llama-b10064-bin-win-cuda-13.3-x64\llama-cli.exe")
+LLAMA_CLI = LLAMA_CLI_LOCAL if LLAMA_CLI_LOCAL.exists() else LLAMA_CLI_FALLBACK
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 from scorer import score_submission
