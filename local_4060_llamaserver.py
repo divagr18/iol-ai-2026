@@ -251,7 +251,7 @@ def main():
     parser.add_argument("--model", type=str, required=True, help="Path to .gguf file")
     parser.add_argument("--data", type=str, default="data/linguini_test_sample.csv")
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--max_tokens", type=int, default=256)
+    parser.add_argument("--max_tokens", type=int, default=1024, help="Max tokens per problem (default 1024, Qwen3.5 needs ~400 for thinking + ~100 for answers)")
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--ngl", type=int, default=999)
     parser.add_argument("--ctx", type=int, default=2048)

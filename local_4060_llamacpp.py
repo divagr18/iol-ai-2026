@@ -165,7 +165,7 @@ def main():
     parser.add_argument("--model", type=str, required=True, help="Path to .gguf file")
     parser.add_argument("--data", type=str, default="data/linguini_test_sample.csv")
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--max_tokens", type=int, default=256)
+    parser.add_argument("--max_tokens", type=int, default=1024, help="Max tokens per problem (default 1024 for Qwen3.5 thinking + answers)")
     parser.add_argument("--threads", type=int, default=4, help="CPU threads (default: 4)")
     parser.add_argument("--ngl", type=int, default=999, help="GPU layers to offload (default: 999=all)")
     parser.add_argument("--ctx", type=int, default=2048, help="Context size (default: 2048, enough for IOL problems)")

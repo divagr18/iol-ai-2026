@@ -35,7 +35,7 @@ from explanation import generate_explanation, format_explanation_for_csv
 # Configuration
 MODEL_ID = os.environ.get("MODEL_ID", ".")
 DEVICE = os.environ.get("DEVICE", "auto")
-MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "512"))
+MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "1024"))
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
 TOP_P = float(os.environ.get("TOP_P", "1.0"))
 DO_SAMPLE = os.environ.get("DO_SAMPLE", "false").lower() == "true"
