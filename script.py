@@ -27,7 +27,7 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_DATASETS_OFFLINE"] = "1"
 
 # Import local analysis modules (shipped in repo)
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 from analyzers import analyze_problem
 from verifiers import verify_answers
 from explanation import generate_explanation, format_explanation_for_csv
