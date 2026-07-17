@@ -17,20 +17,23 @@
 
 ## Quick Commands
 
-### Local 4060 (Unsloth GGUF Q4_K_M — Fastest for Prompt Iteration)
+### Local 4060 (llama.cpp CLI — Fastest for Prompt Iteration)
+You already have llama.cpp compiled with CUDA at:
+`C:\Users\Keshav\Downloads\llama-b10064-bin-win-cuda-13.3-x64\llama-cli.exe`
+
 ```bash
-# Install
-pip install llama-cpp-python pandas
+# Download Unsloth GGUF Q4_K_M (~2.3GB) via browser:
+# https://huggingface.co/unsloth/Qwen3.5-4B-GGUF → click qwen3.5-4b-q4_k_m.gguf → download
+# Save to D:\IOL\models\
 
-# Download Unsloth GGUF Q4_K_M (~2.3GB)
-# Get direct link from: https://huggingface.co/unsloth/Qwen3.5-4B-GGUF
-# Example: wget -P models/ https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/qwen3.5-4b-q4_k_m.gguf
+# Run on 5 problems (native CUDA, ~2-5s each on 4060)
+python local_4060_llamacpp.py --model models/qwen3.5-4b-q4_k_m.gguf --limit 5 --score
 
-# Run on 5 problems locally
-python local_4060_gguf.py --model models/qwen3.5-4b-q4_k_m.gguf --limit 5 --score
+# Iterate on prompts: edit script.py TASK_PROMPTS, then rerun
 ```
 
 ### Local 4060 (Transformers AWQ — Eval-Compatible)
+Same code that runs in the T4 sandbox:
 ```bash
 pip install autoawq autoawq-kernels pandas
 # Download AWQ (~2.5GB)
