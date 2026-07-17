@@ -32,6 +32,7 @@ LLAMA_SERVER = LLAMA_SERVER_LOCAL if LLAMA_SERVER_LOCAL.exists() else LLAMA_SERV
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 from scorer import score_submission
+from analyzers import analyze_problem
 
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 8080
@@ -171,7 +172,7 @@ def chat_completion(messages: list, max_tokens: int = 512, temp: float = 0.0, ti
     return ""
 
 
-def build_messages(context: str, query: str, task_type: str) -> list:
+def build_messages(context: str, query: str, task_type: str, analysis_text: str = "") -> list:
     system = (
         "You are an expert linguist solving International Linguistics Olympiad problems. "
         "Answer every numbered item. Put each answer on its own line, "
@@ -190,9 +191,17 @@ def build_messages(context: str, query: str, task_type: str) -> list:
     if h:
         system += f" {h}"
 
+    user_content = context.strip()
+    if analysis_text:
+        # Truncate if too long to prevent context overflow
+        if len(analysis_text) > 1500:
+            analysis_text = analysis_text[:1500] + "..."
+        user_content += f"\n\nLinguistic analysis ( mined from the data ):\n{analysis_text}"
+    user_content += f"\n\n{query.strip()}"
+
     return [
         {"role": "system", "content": system},
-        {"role": "user", "content": f"{context.strip()}\n\n{query.strip()}"},
+        {"role": "user", "content": user_content},
     ]
 
 
@@ -286,7 +295,8 @@ def main():
             problem_id = str(r["id"])
             task_type = r.get("task_type", "unknown")
             expected = count_expected_items(r["query"])
-            messages = build_messages(r["context"], r["query"], task_type)
+            analysis_text = analyze_problem(r["context"], r["query"], task_type)
+            messages = build_messages(r["context"], r["query"], task_type, analysis_text)
 
             if times:
                 avg = sum(times) / len(times)
