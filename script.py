@@ -87,12 +87,17 @@ def generate(tok, model, messages, max_tokens):
         )
         device = next(model.parameters()).device
         inputs = inputs.to(device)
+        # Build attention mask (pad == eos for Qwen, so explicit mask prevents warning)
+        attention_mask = torch.ones_like(inputs)
         with torch.no_grad():
             outputs = model.generate(
                 inputs,
+                attention_mask=attention_mask,
                 max_new_tokens=max_tokens,
                 do_sample=DO_SAMPLE,
                 temperature=TEMPERATURE if DO_SAMPLE else None,
+                top_p=1.0,
+                top_k=50,
                 pad_token_id=tok.pad_token_id,
             )
         new_tokens = outputs[0][inputs.shape[-1]:]
