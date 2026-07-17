@@ -26,7 +26,7 @@ os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 # Configuration
-MODEL_ID = os.environ.get("MODEL_ID", ".")  # weights shipped in repo root or subdir
+MODEL_ID = os.environ.get("MODEL_ID", "qwen2.5-14b-awq")  # weights shipped in repo subdir
 MAX_NEW_TOKENS = 512
 TEMPERATURE = 0.0
 DO_SAMPLE = False
