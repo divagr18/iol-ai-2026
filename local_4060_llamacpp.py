@@ -1,4 +1,4 @@
-"""
+r"""
 Local 4060 Test via llama.cpp CLI (Native, Pre-compiled CUDA)
 
 Uses the actual llama.cpp binaries you already have:
