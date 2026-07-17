@@ -54,7 +54,7 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2
         "-c", str(ctx),
         "-b", str(batch),
         "--mlock",
-        "--flash-attn",  # faster on Ada (4060)
+        "--flash-attn", "auto",  # faster on Ada (4060), auto for compatibility
     ]
 
     print(f"Starting server: {LLAMA_SERVER.name}")
