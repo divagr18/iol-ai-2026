@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import concurrent.futures
 import json
 import os
 import re
@@ -34,7 +35,7 @@ SERVER_PORT = 8080
 SERVER_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
 
 
-def start_server(model_path: str, ngl: int = 999, threads: int = 8, ctx: int = 4096, batch: int = 512, reasoning: str = "off"):
+def start_server(model_path: str, ngl: int = 999, threads: int = 16, ctx: int = 4096, batch: int = 2048, reasoning: str = "off", parallel: int = 4):
     if not LLAMA_SERVER.exists():
         raise FileNotFoundError(
             f"llama-server not found at {LLAMA_SERVER}. "
@@ -50,6 +51,7 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 8, ctx: int = 4
         "-t", str(threads),
         "-c", str(ctx),
         "-b", str(batch),
+        "-np", str(parallel),
         "--mlock",
         "--no-webui",
         "--flash-attn", "auto",
@@ -272,6 +274,8 @@ def main():
     parser.add_argument("--score", action="store_true")
     parser.add_argument("--use_analysis", action="store_true", help="Inject deterministic linguistic analyzers into prompt")
     parser.add_argument("--reasoning", type=str, choices=["on", "off"], default="off", help="Enable model thinking/reasoning (on=generate thinking tokens, off=final answers only)")
+    parser.add_argument("--parallel", type=int, default=4, help="Number of parallel slots in llama-server (-np)")
+    parser.add_argument("--workers", type=int, default=4, help="Number of concurrent HTTP requests (should match --parallel)")
     args = parser.parse_args()
 
     df = pd.read_csv(args.data, dtype=str)
@@ -286,7 +290,28 @@ def main():
         ctx=args.ctx,
         batch=args.batch,
         reasoning=args.reasoning,
+        parallel=args.parallel,
     )
+
+    def solve_one(idx_r):
+        idx, r = idx_r
+        problem_id = str(r["id"])
+        task_type = r.get("task_type", "unknown")
+        expected = count_expected_items(r["query"])
+        if args.use_analysis:
+            analysis_text = analyze_problem(r["context"], r["query"], task_type)
+        else:
+            analysis_text = ""
+        messages = build_messages(r["context"], r["query"], task_type, analysis_text)
+        try:
+            start = time.time()
+            text = chat_completion(messages, max_tokens=args.max_tokens)
+            elapsed = time.time() - start
+            answers = parse_answers(text, expected)
+            pred = json.dumps(answers, ensure_ascii=False)
+            return {"id": problem_id, "pred": pred, "elapsed": elapsed, "answers": answers, "error": None}
+        except Exception as e:
+            return {"id": problem_id, "pred": json.dumps([""], ensure_ascii=False), "elapsed": 0.0, "answers": [], "error": str(e)}
 
     try:
         rows = []
@@ -294,54 +319,26 @@ def main():
         errors = 0
         overall_start = time.time()
 
-        print(f"\nRunning {total} problems...\n")
+        print(f"\nRunning {total} problems with {args.workers} concurrent workers...\n")
 
-        for idx, r in df.iterrows():
-            problem_id = str(r["id"])
-            task_type = r.get("task_type", "unknown")
-            expected = count_expected_items(r["query"])
-            if args.use_analysis:
-                analysis_text = analyze_problem(r["context"], r["query"], task_type)
-            else:
-                analysis_text = ""
-            messages = build_messages(r["context"], r["query"], task_type, analysis_text)
-
-            if times:
-                avg = sum(times) / len(times)
-                remaining = (total - idx) * avg
-                eta_str = format_eta(remaining)
-                rate = 60.0 / avg if avg > 0 else 0
-            else:
-                eta_str = "??:??"
-                rate = 0
-
-            prefix = f"[{idx+1}/{total}] {problem_id} ({task_type}, {expected} items)"
-            suffix = f"ETA {eta_str} @ {rate:.1f} prob/min"
-            print_progress_bar(idx, total, prefix=prefix, suffix=suffix)
-
-            try:
-                start = time.time()
-                text = chat_completion(messages, max_tokens=args.max_tokens)
-                elapsed = time.time() - start
-                times.append(elapsed)
-
-                answers = parse_answers(text, expected)
-                pred = json.dumps(answers, ensure_ascii=False)
-                rows.append({"id": problem_id, "pred": pred})
-
-                preview = " | ".join(answers[:3])
-                if len(answers) > 3:
-                    preview += f" ... ({len(answers)} total)"
-                print(f"  -> {len(answers)} answers in {elapsed:.1f}s | {preview[:80]}")
-
-            except Exception as e:
-                errors += 1
-                print(f"  -> FAILED: {e}")
-                rows.append({"id": problem_id, "pred": json.dumps([""], ensure_ascii=False)})
-                times.append(0.0)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = {executor.submit(solve_one, (idx, r)): idx for idx, r in df.iterrows()}
+            completed = 0
+            for future in concurrent.futures.as_completed(futures):
+                completed += 1
+                res = future.result()
+                rows.append({"id": res["id"], "pred": res["pred"]})
+                if res["error"]:
+                    errors += 1
+                    print(f"  [{completed}/{total}] {res['id']} -> FAILED: {res['error']}")
+                else:
+                    times.append(res["elapsed"])
+                    preview = " | ".join(res["answers"][:3])
+                    if len(res["answers"]) > 3:
+                        preview += f" ... ({len(res['answers'])} total)"
+                    print(f"  [{completed}/{total}] {res['id']} -> {len(res['answers'])} answers in {res['elapsed']:.1f}s | {preview[:80]}")
 
         overall_elapsed = time.time() - overall_start
-        print_progress_bar(total, total, prefix=f"[{total}/{total}] Done", suffix="")
 
         out_path = Path(args.output)
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -355,9 +352,10 @@ def main():
         print(f"PROBLEMS   : {total} ({errors} errors)")
         if times and any(t > 0 for t in times):
             valid = [t for t in times if t > 0]
-            print(f"AVG/PROB   : {sum(valid)/len(valid):.1f}s (excl. server load)")
+            print(f"AVG/PROB   : {sum(valid)/len(valid):.1f}s (wall-clock per batch)")
             print(f"MIN/MAX    : {min(valid):.1f}s / {max(valid):.1f}s")
             print(f"THROUGHPUT : {60.0*len(valid)/sum(valid):.1f} prob/min")
+            print(f"WALL-CLOCK : {60.0*total/overall_elapsed:.1f} prob/min (includes all parallel work)")
         print(f"{'='*60}")
 
         if args.score:
