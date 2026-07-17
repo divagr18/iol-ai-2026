@@ -39,6 +39,7 @@ MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "1024"))
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
 TOP_P = float(os.environ.get("TOP_P", "1.0"))
 DO_SAMPLE = os.environ.get("DO_SAMPLE", "false").lower() == "true"
+USE_ANALYSIS = os.environ.get("USE_ANALYSIS", "true").lower() == "true"
 USE_EXPLANATION = os.environ.get("USE_EXPLANATION", "true").lower() == "true"
 MAX_REPAIR_ATTEMPTS = int(os.environ.get("MAX_REPAIR", "1"))
 SEED = int(os.environ.get("SEED", "42"))
@@ -241,7 +242,7 @@ def main():
         per_problem = remaining / max(len(df) - idx, 1)
         max_new = min(MAX_NEW_TOKENS, 128) if per_problem < 10 else MAX_NEW_TOKENS
 
-        analysis_text = analyze_problem(context, query, task_type)
+        analysis_text = analyze_problem(context, query, task_type) if USE_ANALYSIS else ""
 
         messages = build_messages(
             context, query, task_type,
