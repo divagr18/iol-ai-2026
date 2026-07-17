@@ -164,7 +164,13 @@ def chat_completion(messages: list, max_tokens: int = 512, temp: float = 0.0, ti
         result = json.loads(resp.read().decode("utf-8"))
     choices = result.get("choices", [])
     if choices:
-        return choices[0].get("message", {}).get("content", "").strip()
+        msg = choices[0].get("message", {})
+        content = msg.get("content", "").strip()
+        reasoning = msg.get("reasoning_content", "").strip()
+        if content:
+            return content
+        elif reasoning:
+            return reasoning
     return ""
 
 
