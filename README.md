@@ -18,35 +18,43 @@
 ## Quick Commands
 
 ### Local 4060 (llama.cpp SERVER — Recommended, Model Stays Hot in VRAM)
-Uses `llama-server.exe` which loads the model **once** into VRAM, then each problem is a fast HTTP request (~1-3s). No reloading between problems.
+Uses `llama-server.exe` with **OpenAI-compatible** `/v1/chat/completions`. The server applies the model's built-in chat template automatically — works for Gemma, Qwen, Llama, etc. No manual prompt formatting.
+
+**Recommended model:** Gemma-4-E4B (~4B params, instruction-tuned, no reasoning overhead, fast on 4060).
 
 ```bash
-# Download Unsloth GGUF Q4_K_M (~2.3GB) via browser:
-# https://huggingface.co/unsloth/Qwen3.5-4B-GGUF → click qwen3.5-4b-q4_k_m.gguf → download
+# Download Unsloth Gemma-4-E4B Q4_K_M GGUF (~2.5GB) via browser:
+# https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF → click gemma-4-e4b-it-q4_k_m.gguf → download
 # Save to D:\IOL\models\
 
 # Run on 5 problems (server starts automatically, stays hot)
-python local_4060_llamaserver.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 5 --score
+python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 5 --score
 
 # Tune performance
-python local_4060_llamaserver.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 10 \
+python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 10 \
   --threads 4 --ngl 999 --ctx 2048 --batch 256
 ```
+
+**Qwen3.5 local test (has reasoning/thinking blocks, ~60s/problem on 4060):**
+```bash
+python local_4060_llamaserver.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 5 --score --max_tokens 1024
+```
+The server automatically passes `--chat-template-kwargs '{"enable_thinking":false}'` to suppress Qwen3.5 reasoning.
 
 ### Local 4060 (llama.cpp CLI — Fallback, Spawns Per Problem)
 Slower because it reloads the model every problem. Only use if server mode fails.
 ```bash
-python local_4060_llamacpp.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 5 --score --verbose
+python local_4060_llamacpp.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 5 --score --verbose
 ```
 
 ### Local 4060 (Transformers AWQ — Eval-Compatible)
 Same code that runs in the T4 sandbox:
 ```bash
 pip install autoawq autoawq-kernels pandas
-# Download AWQ (~2.5GB)
-huggingface-cli download cyankiwi/Qwen3.5-4B-AWQ-4bit --local-dir models/qwen3.5-4b-awq
+# Download AWQ
+huggingface-cli download cyankiwi/gemma-4-E4B-it-AWQ-4bit --local-dir models/gemma4-e4b-awq
 # Test harness
-MODEL_ID=./models/qwen3.5-4b-awq QUANT=awq python -m src.harness --limit 5 --output data/run_output
+MODEL_ID=./models/gemma4-e4b-awq QUANT=awq python -m src.harness --limit 5 --output data/run_output
 ```
 
 ### RunPod H100 (One-Command Setup)

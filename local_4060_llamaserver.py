@@ -1,14 +1,17 @@
 r"""
 Local 4060 Test via llama.cpp SERVER (Native, Pre-compiled CUDA)
 
-Uses llama-server.exe to keep the model HOT in VRAM. Spawns the server once,
-then sends HTTP requests per problem. Massive speedup vs spawning llama-cli
-for every problem.
+Uses llama-server.exe with OpenAI-compatible /v1/chat/completions endpoint.
+The server applies the model's built-in chat template automatically, so this
+works for Qwen, Gemma, Llama, or any GGUF with a chat template.
 
-Server loads model once → ~10-20s startup, then each problem is ~1-3s.
+Key features:
+  - --chat-template-kwargs '{"enable_thinking":false}' disables Qwen3.5 reasoning
+  - /v1/chat/completions endpoint: model-agnostic, no manual prompt formatting
+  - Model stays HOT in VRAM, ~1-3s per problem after ~10s startup
 
 Usage:
-    python local_4060_llamaserver.py --model models\qwen3.5-4b-q4_k_m.gguf --limit 5 --score
+    python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 5 --score
 """
 
 import argparse
@@ -23,7 +26,6 @@ from pathlib import Path
 
 import pandas as pd
 
-# Auto-detect llama.cpp binary
 LLAMA_SERVER_LOCAL = Path(__file__).parent / "llama" / "llama-server.exe"
 LLAMA_SERVER_FB = Path(r"C:\Users\Keshav\Downloads\llama-b10064-bin-win-cuda-13.3-x64\llama-server.exe")
 LLAMA_SERVER = LLAMA_SERVER_LOCAL if LLAMA_SERVER_LOCAL.exists() else LLAMA_SERVER_FB
@@ -37,7 +39,6 @@ SERVER_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
 
 
 def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2048, batch: int = 256):
-    """Start llama-server.exe in background. Returns Popen handle."""
     if not LLAMA_SERVER.exists():
         raise FileNotFoundError(
             f"llama-server.exe not found at {LLAMA_SERVER}. "
@@ -56,6 +57,7 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2
         "--mlock",
         "--no-webui",
         "--flash-attn", "auto",
+        "--chat-template-kwargs", '{"enable_thinking":false}',
     ]
 
     print(f"Starting server: {LLAMA_SERVER.name}")
@@ -136,7 +138,6 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2
 
 
 def stop_server(proc):
-    """Gracefully stop the server."""
     print("\nStopping server...")
     proc.terminate()
     try:
@@ -146,28 +147,31 @@ def stop_server(proc):
     print("Server stopped.")
 
 
-def chat_completion(prompt: str, max_tokens: int = 256, temp: float = 0.0, timeout: int = 300) -> str:
-    """Send a chat completion request to the running server."""
+def chat_completion(messages: list, max_tokens: int = 512, temp: float = 0.0, timeout: int = 300) -> str:
+    """Send OpenAI-compatible chat completion to /v1/chat/completions."""
     payload = {
-        "prompt": prompt,
-        "n_predict": max_tokens,
+        "model": "local",
+        "messages": messages,
+        "max_tokens": max_tokens,
         "temperature": temp,
-        "stop": ["<|im_end|>", "<|im_start|>"],
         "stream": False,
     }
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
-        f"{SERVER_URL}/completion",
+        f"{SERVER_URL}/v1/chat/completions",
         data=data,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         result = json.loads(resp.read().decode("utf-8"))
-    return result.get("content", "").strip()
+    choices = result.get("choices", [])
+    if choices:
+        return choices[0].get("message", {}).get("content", "").strip()
+    return ""
 
 
-def build_prompt(context: str, query: str, task_type: str) -> str:
+def build_messages(context: str, query: str, task_type: str) -> list:
     system = (
         "You are an expert linguist solving International Linguistics Olympiad problems. "
         "Answer every numbered item. Put each answer on its own line, "
@@ -186,10 +190,10 @@ def build_prompt(context: str, query: str, task_type: str) -> str:
     if h:
         system += f" {h}"
 
-    prompt = f"<|im_start|>system\n{system}<|im_end|>\n"
-    prompt += f"<|im_start|>user\n{context.strip()}\n\n{query.strip()}<|im_end|>\n"
-    prompt += "<|im_start|>assistant\n"
-    return prompt
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"{context.strip()}\n\n{query.strip()}"},
+    ]
 
 
 def parse_answers(text: str, expected_count: int = None) -> list:
@@ -218,15 +222,12 @@ def parse_answers(text: str, expected_count: int = None) -> list:
 
 
 def count_expected_items(query: str) -> int:
-    # Numbered items like "17." or "18)"
     numbers = re.findall(r"(?:^|\n)\s*(\d+)[\.\)]\s+", query)
     if numbers:
         return max(int(n) for n in numbers)
-    # Range notation like "(1-4)" or "(1–10)"
     range_match = re.search(r"\(\s*(\d+)\s*[-–—]\s*(\d+)\s*\)", query)
     if range_match:
         return int(range_match.group(2)) - int(range_match.group(1)) + 1
-    # Count lines starting with numbers
     return len([ln for ln in query.splitlines() if re.match(r"^\d+[\.\)]", ln.strip())])
 
 
@@ -251,7 +252,7 @@ def main():
     parser.add_argument("--model", type=str, required=True, help="Path to .gguf file")
     parser.add_argument("--data", type=str, default="data/linguini_test_sample.csv")
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--max_tokens", type=int, default=1024, help="Max tokens per problem (default 1024, Qwen3.5 needs ~400 for thinking + ~100 for answers)")
+    parser.add_argument("--max_tokens", type=int, default=512, help="Max tokens per problem (default 512, no CoT for Gemma-4)")
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--ngl", type=int, default=999)
     parser.add_argument("--ctx", type=int, default=2048)
@@ -265,7 +266,6 @@ def main():
         df = df.head(args.limit)
     total = len(df)
 
-    # Start server
     server_proc = start_server(
         args.model,
         ngl=args.ngl,
@@ -286,9 +286,8 @@ def main():
             problem_id = str(r["id"])
             task_type = r.get("task_type", "unknown")
             expected = count_expected_items(r["query"])
-            prompt = build_prompt(r["context"], r["query"], task_type)
+            messages = build_messages(r["context"], r["query"], task_type)
 
-            # ETA
             if times:
                 avg = sum(times) / len(times)
                 remaining = (total - idx) * avg
@@ -304,7 +303,7 @@ def main():
 
             try:
                 start = time.time()
-                text = chat_completion(prompt, max_tokens=args.max_tokens)
+                text = chat_completion(messages, max_tokens=args.max_tokens)
                 elapsed = time.time() - start
                 times.append(elapsed)
 
@@ -326,13 +325,11 @@ def main():
         overall_elapsed = time.time() - overall_start
         print_progress_bar(total, total, prefix=f"[{total}/{total}] Done", suffix="")
 
-        # Save
         out_path = Path(args.output)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         submission = pd.DataFrame(rows)
         submission.to_csv(args.output, index=False, encoding="utf-8")
 
-        # Summary
         print(f"\n{'='*60}")
         print(f"SUBMISSION : {args.output}")
         print(f"TOTAL TIME : {overall_elapsed:.1f}s ({overall_elapsed/60:.1f} min)")

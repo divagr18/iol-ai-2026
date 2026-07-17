@@ -6,39 +6,36 @@ set -e
 
 echo "=== IOL-AI 2026 H100 Setup ==="
 
-# 1. Clone your repo (replace with your actual repo URL after you push)
-REPO_URL="${REPO_URL:-https://github.com/YOUR_USERNAME/iol-ai-2026}"
+REPO_URL="${REPO_URL:-https://github.com/divagr18/iol-ai-2026}"
 if [ ! -d "/workspace/iol" ]; then
     git clone "$REPO_URL" /workspace/iol || true
 fi
 cd /workspace/iol
 
-# 2. Install dependencies
 pip install -q -r requirements.txt
 
-# 3. Download latest models (parallel where possible)
-echo "Downloading Qwen3.5-4B-AWQ..."
-python -c "from huggingface_hub import snapshot_download; snapshot_download('cyankiwi/Qwen3.5-4B-AWQ-4bit', local_dir='models/qwen3.5-4b-awq', local_dir_use_symlinks=False)" &
+# Download models in parallel
+echo "Downloading Gemma-4-E4B-AWQ (~3GB)..."
+python -c "from huggingface_hub import snapshot_download; snapshot_download('cyankiwi/gemma-4-E4B-it-AWQ-4bit', local_dir='models/gemma4-e4b-awq', local_dir_use_symlinks=False)" &
 PID1=$!
 
-echo "Downloading Qwen3.5-9B-AWQ..."
+echo "Downloading Qwen3.5-9B-AWQ (~6GB)..."
 python -c "from huggingface_hub import snapshot_download; snapshot_download('QuantTrio/Qwen3.5-9B-AWQ', local_dir='models/qwen3.5-9b-awq', local_dir_use_symlinks=False)" &
 PID2=$!
 
-echo "Downloading Gemma-4-12B..."
+echo "Downloading Gemma-4-12B (~13GB)..."
 python -c "from huggingface_hub import snapshot_download; snapshot_download('google/gemma-4-12B-it', local_dir='models/gemma4-12b', local_dir_use_symlinks=False)" &
 PID3=$!
 
-# Wait for downloads
 wait $PID1 $PID2 $PID3
 echo "All models downloaded"
 
-# 4. Quick smoke test on 5 problems with Qwen3.5-4B
-echo "Smoke test: Qwen3.5-4B on 5 problems..."
-MODEL_ID=./models/qwen3.5-4b-awq QUANT=awq MAX_NEW_TOKENS=256 \
+# Smoke test with Gemma-4-E4B (fast, no reasoning overhead)
+echo "Smoke test: Gemma-4-E4B on 5 problems..."
+MODEL_ID=./models/gemma4-e4b-awq QUANT=awq MAX_NEW_TOKENS=512 \
     python -m src.harness --limit 5 --output data/smoke_test --no_score
 
-# 5. Run full bake-off
+# Full bake-off
 echo "Running bake-off on 40 problems..."
 python -m src.bakeoff --config configs/bakeoff_models.json --limit 40 --output data/bakeoff/summary.csv
 
