@@ -28,7 +28,9 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Configuration
-MODEL_ID = os.environ.get("MODEL_ID", "qwen2.5-14b-awq")  # weights shipped in repo subdir
+MODEL_ID = os.environ.get("MODEL_ID", "qwen2.5-14b-awq")
+# IMPORTANT: Do NOT set MODEL_ID env var unless you know what you're doing.
+# The default points to Qwen2.5-14B-AWQ weights shipped in the repo.
 MAX_NEW_TOKENS = 512
 TEMPERATURE = 0.0
 DO_SAMPLE = False
