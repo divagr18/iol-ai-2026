@@ -16,7 +16,30 @@ cd /workspace/iol
 # 2. Install dependencies (minimal — no torch/transformers/autoawq, llama.cpp handles inference)
 pip install -q -r requirements_server.txt
 
-echo "Using llama.cpp Docker image: ghcr.io/ggml-org/llama.cpp:server-cuda"
+# 3. Build llama-server from source (no prebuilt Linux CUDA binary available)
+LLAMA_BIN="/workspace/llama.cpp/build/bin/llama-server"
+
+if [ ! -f "$LLAMA_BIN" ]; then
+    echo "llama-server not found. Building llama.cpp from source with CUDA..."
+    
+    if ! command -v cmake &> /dev/null; then
+        echo "Installing build dependencies (cmake, build-essential)..."
+        apt-get update -qq && apt-get install -y -qq build-essential cmake
+    fi
+    
+    cd /workspace
+    if [ ! -d "llama.cpp" ]; then
+        git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
+    fi
+    cd llama.cpp
+    git pull --depth 1 || true
+    mkdir -p build && cd build
+    cmake .. -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
+    make -j$(nproc) llama-server
+    cd /workspace/iol
+fi
+
+echo "llama-server: $LLAMA_BIN"
 
 # 4. Download Gemma-4 12B GGUF (Q4_K_M, ~7.5GB)
 MODEL_DIR="/workspace/iol/models"
@@ -26,7 +49,6 @@ if [ ! -f "$MODEL_DIR/gemma-4-12b-it-q4_k_m.gguf" ]; then
     echo "Downloading Gemma-4-12B Q4_K_M GGUF (~7.5GB)..."
     cd "$MODEL_DIR"
     
-    # Primary source: unsloth
     wget -q --show-progress "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-q4_k_m.gguf" -O gemma-4-12b-it-q4_k_m.gguf || \
     wget -q --show-progress "https://huggingface.co/bartowski/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf" -O gemma-4-12b-it-q4_k_m.gguf || \
     echo "WARNING: Could not auto-download. Please download manually to $MODEL_DIR/"
