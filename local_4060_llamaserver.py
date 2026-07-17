@@ -39,7 +39,7 @@ SERVER_PORT = 8080
 SERVER_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
 
 
-def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2048, batch: int = 256):
+def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2048, batch: int = 256, reasoning: str = "off"):
     if not LLAMA_SERVER.exists():
         raise FileNotFoundError(
             f"llama-server.exe not found at {LLAMA_SERVER}. "
@@ -58,7 +58,7 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2
         "--mlock",
         "--no-webui",
         "--flash-attn", "auto",
-        "--reasoning", "off",
+        "--reasoning", reasoning,
     ]
 
     print(f"Starting server: {LLAMA_SERVER.name}")
@@ -269,6 +269,7 @@ def main():
     parser.add_argument("--output", type=str, default="data/llamaserver_submission.csv")
     parser.add_argument("--score", action="store_true")
     parser.add_argument("--use_analysis", action="store_true", help="Inject deterministic linguistic analyzers into prompt (default off for 4B models)")
+    parser.add_argument("--reasoning", type=str, choices=["on", "off"], default="off", help="Enable model thinking/reasoning (on=generate thinking tokens, off=final answers only)")
     args = parser.parse_args()
 
     df = pd.read_csv(args.data, dtype=str)
@@ -282,6 +283,7 @@ def main():
         threads=args.threads,
         ctx=args.ctx,
         batch=args.batch,
+        reasoning=args.reasoning,
     )
 
     try:
