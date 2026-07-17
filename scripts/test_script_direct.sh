@@ -21,8 +21,7 @@ export TRANSFORMERS_OFFLINE=1
 if [ ! -d "$MODEL_ID" ]; then
     echo "Model not found. Downloading..."
     hf download cyankiwi/gemma-4-E4B-it-AWQ-4bit \
-        --local-dir models/gemma4-e4b-awq \
-        --local-dir-use-symlinks False
+        --local-dir models/gemma4-e4b-awq
 fi
 
 echo "Running script.py (eval sandbox style)..."
