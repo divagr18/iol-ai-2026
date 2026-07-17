@@ -156,9 +156,11 @@ def apply_chat_template_safe(tok, messages, max_length=8192):
 
 
 def parse_answers(text, expected_count=None):
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-    text = re.sub(r"Thinking Process:.*", "", text, flags=re.DOTALL)
-    text = re.sub(r"\*\*Analyze the Request:\*\*.*", "", text, flags=re.DOTALL)
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"Thinking Process:.*", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"\*\*Analyze the Request:\*\*.*", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"\*\*.*?\*\*", "", text, flags=re.DOTALL)
     lines = text.splitlines()
     answers = []
     for line in lines:
