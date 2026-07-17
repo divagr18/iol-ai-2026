@@ -60,12 +60,27 @@ huggingface-cli download cyankiwi/gemma-4-E4B-it-AWQ-4bit --local-dir models/gem
 MODEL_ID=./models/gemma4-e4b-awq QUANT=awq python -m src.harness --limit 5 --output data/run_output
 ```
 
-### RunPod H100 (One-Command Setup)
+### RunPod H100 (One-Command Setup — Transformers/AWQ)
 ```bash
 # Paste this into your RunPod H100 terminal
 git clone https://github.com/divagr18/iol-ai-2026.git /workspace/iol
 cd /workspace/iol
 bash scripts/runpod_h100_setup.sh
+```
+
+### RunPod H100 (llama-server + GGUF — Same as Local Setup)
+For fast iteration with llama-server (model stays hot in VRAM):
+```bash
+# 1. Setup (one time) — downloads llama-server Linux binary + Gemma-4 12B Q4_K_M
+git clone https://github.com/divagr18/iol-ai-2026.git /workspace/iol
+cd /workspace/iol
+bash scripts/runpod_h100_llamaserver_setup.sh
+
+# 2. Test on 5 problems (baseline)
+python runpod_h100_llamaserver.py --model models/gemma-4-12b-it-q4_k_m.gguf --limit 5 --score
+
+# 3. Full run with analyzers (12B can handle them)
+python runpod_h100_llamaserver.py --model models/gemma-4-12b-it-q4_k_m.gguf --limit 40 --score --use_analysis
 ```
 
 ### RunPod T4 (Dress Rehearsal)
