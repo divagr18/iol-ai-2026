@@ -54,7 +54,8 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2
         "-c", str(ctx),
         "-b", str(batch),
         "--mlock",
-        "--flash-attn", "auto",  # faster on Ada (4060), auto for compatibility
+        "--no-webui",
+        "--flash-attn", "auto",
     ]
 
     print(f"Starting server: {LLAMA_SERVER.name}")
@@ -73,11 +74,22 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2
         errors="replace",
     )
 
-    # Wait for server to be ready by polling /health
+    import threading
+    server_output = []
+    def _read_stdout():
+        try:
+            for line in iter(proc.stdout.readline, ""):
+                server_output.append(line)
+        except Exception:
+            pass
+    reader = threading.Thread(target=_read_stdout, daemon=True)
+    reader.start()
+
     start_wait = time.time()
-    max_wait = 120  # seconds
+    max_wait = 180
     ready = False
-    last_line = ""
+    gpu_detected = False
+    cpu_detected = False
 
     while time.time() - start_wait < max_wait:
         try:
@@ -89,25 +101,37 @@ def start_server(model_path: str, ngl: int = 999, threads: int = 4, ctx: int = 2
         except Exception:
             pass
 
-        # Read stdout to show progress
         if proc.poll() is not None:
-            print("ERROR: Server crashed during startup!")
-            out, _ = proc.communicate()
-            print(out[-1000:])
+            print("\nERROR: Server crashed during startup!")
+            print("Last 30 lines of output:")
+            print("".join(server_output[-30:]))
             sys.exit(1)
 
-        # Non-blocking read of latest output line
-        import select
-        # On Windows select doesn't work with pipes, so just sleep
-        time.sleep(0.5)
+        time.sleep(0.3)
+
+    output_text = "".join(server_output)
+    if "CUDA" in output_text or "GPU" in output_text or "offload" in output_text.lower():
+        gpu_detected = True
+    if "CPU" in output_text and not gpu_detected:
+        cpu_detected = True
 
     if not ready:
-        print("ERROR: Server failed to start within 120s")
+        print("\nERROR: Server failed to start within 180s")
+        print("Last 20 lines:")
+        print("".join(server_output[-20:]))
         proc.terminate()
         sys.exit(1)
 
     elapsed = time.time() - start_wait
     print(f"Server ready in {elapsed:.1f}s")
+
+    if cpu_detected and not gpu_detected:
+        print("\n⚠️  WARNING: Model appears to be running on CPU, not GPU!")
+        print("   Inference will be very slow (~30-60s per problem).")
+        print("   Check that you have the CUDA build of llama.cpp and NVIDIA drivers.")
+    elif gpu_detected:
+        print("   GPU offload detected ✓")
+
     return proc
 
 
@@ -122,7 +146,7 @@ def stop_server(proc):
     print("Server stopped.")
 
 
-def chat_completion(prompt: str, max_tokens: int = 256, temp: float = 0.0) -> str:
+def chat_completion(prompt: str, max_tokens: int = 256, temp: float = 0.0, timeout: int = 300) -> str:
     """Send a chat completion request to the running server."""
     payload = {
         "prompt": prompt,
@@ -138,7 +162,7 @@ def chat_completion(prompt: str, max_tokens: int = 256, temp: float = 0.0) -> st
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
         result = json.loads(resp.read().decode("utf-8"))
     return result.get("content", "").strip()
 
