@@ -167,9 +167,7 @@ def parse_answers(text: str, expected_count: int = None) -> list:
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"Thinking Process:.*", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"\*\*.*?
-
-\*\*", "", text, flags=re.DOTALL)
+    text = re.sub(r"\*\*.*?\*\*", "", text, flags=re.DOTALL)
 
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     filtered = []
