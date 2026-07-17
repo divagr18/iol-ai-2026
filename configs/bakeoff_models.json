@@ -1,0 +1,26 @@
+[
+  {
+    "name": "qwen3.5-9b-awq",
+    "model_id": "QuantTrio/Qwen3.5-9B-AWQ",
+    "quant": "awq",
+    "max_new_tokens": 512
+  },
+  {
+    "name": "qwen3.5-4b-awq",
+    "model_id": "cyankiwi/Qwen3.5-4B-AWQ-4bit",
+    "quant": "awq",
+    "max_new_tokens": 512
+  },
+  {
+    "name": "gemma4-12b-bnb4",
+    "model_id": "google/gemma-4-12B-it",
+    "quant": "bnb4",
+    "max_new_tokens": 512
+  },
+  {
+    "name": "gemma4-26b-moe-awq",
+    "model_id": "cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit",
+    "quant": "awq",
+    "max_new_tokens": 512
+  }
+]

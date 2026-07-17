@@ -1,0 +1,30 @@
+# T4 Rehearsal Environment
+# Mirrors the eval sandbox as closely as possible.
+# Build: docker build -t iol-t4-rehearsal -f Dockerfile.t4 .
+# Run:  docker run --gpus all -v $(pwd):/workspace iol-t4-rehearsal
+
+FROM huggingface/competitions:latest
+
+# Install autoawq (same as eval image patch)
+RUN pip install --no-deps --prefer-binary autoawq==0.2.6 autoawq-kernels==0.0.9 || true
+
+# Install our dev dependencies (versions pinned to match eval image where possible)
+RUN pip install --no-cache-dir \
+    transformers>=4.51.0 \
+    torch>=2.4.0 \
+    accelerate \
+    bitsandbytes \
+    pandas \
+    numpy \
+    sacrebleu>=2.4.0 \
+    datasets \
+    pytest \
+    jupyter
+
+# Offline defaults
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
+ENV HF_DATASETS_OFFLINE=1
+
+WORKDIR /workspace
+CMD ["bash"]

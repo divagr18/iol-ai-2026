@@ -1,0 +1,20 @@
+# IOL-AI 2026
+
+# Core
+transformers>=4.51.0
+torch>=2.4.0
+accelerate
+huggingface_hub
+bitsandbytes
+autoawq==0.2.6
+autoawq-kernels==0.0.9
+
+# Data / scoring
+pandas
+numpy
+sacrebleu>=2.4.0
+datasets
+
+# Dev / testing
+pytest
+jupyter
