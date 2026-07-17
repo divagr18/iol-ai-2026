@@ -51,7 +51,10 @@ TASK_HINTS = {
 
 def load_model():
     print("Loading Qwen2.5-14B-AWQ...", flush=True)
-    tok = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
+    try:
+        tok = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True, use_fast=False)
+    except Exception:
+        tok = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
 
