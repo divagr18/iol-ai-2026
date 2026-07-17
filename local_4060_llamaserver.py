@@ -268,6 +268,7 @@ def main():
     parser.add_argument("--batch", type=int, default=256)
     parser.add_argument("--output", type=str, default="data/llamaserver_submission.csv")
     parser.add_argument("--score", action="store_true")
+    parser.add_argument("--use_analysis", action="store_true", help="Inject deterministic linguistic analyzers into prompt (default off for 4B models)")
     args = parser.parse_args()
 
     df = pd.read_csv(args.data, dtype=str)
@@ -295,7 +296,10 @@ def main():
             problem_id = str(r["id"])
             task_type = r.get("task_type", "unknown")
             expected = count_expected_items(r["query"])
-            analysis_text = analyze_problem(r["context"], r["query"], task_type)
+            if args.use_analysis:
+                analysis_text = analyze_problem(r["context"], r["query"], task_type)
+            else:
+                analysis_text = ""
             messages = build_messages(r["context"], r["query"], task_type, analysis_text)
 
             if times:

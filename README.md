@@ -33,6 +33,9 @@ python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --lim
 # Tune performance
 python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 10 \
   --threads 4 --ngl 999 --ctx 2048 --batch 256
+
+# Enable deterministic linguistic analyzers (test if it helps for a specific model)
+python local_4060_llamaserver.py --model models\gemma-4-e4b-it-q4_k_m.gguf --limit 5 --score --use_analysis
 ```
 
 **Qwen3.5 local test (has reasoning/thinking blocks, ~60s/problem on 4060):**
